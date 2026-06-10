@@ -1,0 +1,14 @@
+{
+  "name": "image-compare-proxy",
+  "version": "1.0.0",
+  "description": "Proxy server for Foundry image generation",
+  "main": "proxy.js",
+  "scripts": {
+    "start": "node proxy.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "axios": "^1.6.0"
+  }
+}

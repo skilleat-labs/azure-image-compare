@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Azure OpenAI Image Compare</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #0f172a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 32px;
+      background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.14), transparent 36%),
+        linear-gradient(180deg, #eef2ff 0%, #f8fafc 100%);
+      color: #0f172a;
+    }
+
+    header {
+      width: min(100%, 980px);
+      margin: 0 auto 24px;
+      padding: 0 12px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 2.6vw, 3rem);
+      line-height: 1.05;
+    }
+
+    .note {
+      margin: 0;
+      color: #475569;
+      font-size: 1rem;
+      max-width: 780px;
+      line-height: 1.7;
+    }
+
+    form {
+      width: min(100%, 980px);
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+      padding: 28px;
+      border-radius: 28px;
+      background: rgba(255, 255, 255, 0.98);
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      box-shadow: 0 30px 80px rgba(15, 23, 42, 0.08);
+    }
+
+    label {
+      display: grid;
+      gap: 8px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    input[type="text"], textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 16px;
+      padding: 14px 16px;
+      font-size: 0.98rem;
+      color: #0f172a;
+      background: #ffffff;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+    }
+
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    .inline-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .inline-grid label:last-child {
+      min-width: 220px;
+    }
+
+    button {
+      align-self: start;
+      min-height: 52px;
+      padding: 0 26px;
+      border: none;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+      color: white;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 700;
+      box-shadow: 0 16px 30px rgba(37, 99, 235, 0.18);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 20px 38px rgba(37, 99, 235, 0.22);
+    }
+
+    button:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .results {
+      width: min(100%, 980px);
+      margin: 26px auto 0;
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 24px;
+      background: #ffffff;
+      border-radius: 26px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.07);
+      min-height: 500px;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: #0f172a;
+    }
+
+    .card img {
+      width: 100%;
+      border-radius: 20px;
+      object-fit: contain;
+      max-height: 420px;
+      background: #f8fafc;
+    }
+
+    .download-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      padding: 12px 18px;
+      border-radius: 16px;
+      background: #2563eb;
+      color: white;
+      text-decoration: none;
+      font-weight: 700;
+      transition: transform 0.2s ease, background-color 0.2s ease;
+      margin-top: auto;
+    }
+
+    .download-button:hover {
+      background-color: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    .download-button[hidden] {
+      display: none;
+    }
+
+    .status {
+      font-size: 0.97rem;
+      color: #475569;
+      min-height: 20px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(37, 56, 88, 0.25);
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error {
+      color: #b91c1c;
+      white-space: pre-wrap;
+    }
+
+.debug {
+      display: none;
+      margin: 0 auto;
+      margin-top: 24px;
+      padding: 18px 20px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      color: #334155;
+      font-size: 0.95rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      box-shadow: 0 18px 42px rgba(15, 23, 42, 0.06);
+    }
+
+    .analysis-toggle {
+      width: min(100%, 980px);
+      margin: 0 auto;
+      margin-top: 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 50px;
+      height: 28px;
+      background: #cbd5e1;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .toggle-switch.active {
+      background: #2563eb;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 24px;
+      height: 24px;
+      background: white;
+      border-radius: 12px;
+      transition: left 0.3s ease;
+    }
+
+    .toggle-switch.active::after {
+      left: 24px;
+    }
+
+    .analysis-section {
+      width: min(100%, 980px);
+      margin: 0 auto;
+      margin-top: 24px;
+      padding: 28px;
+      border-radius: 26px;
+      background: rgba(255, 255, 255, 0.98);
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.07);
+      display: none;
+    }
+
+    .analysis-section.active {
+      display: block;
+    }
+
+    .analysis-section h3 {
+      margin: 0 0 20px;
+      font-size: 1.2rem;
+      color: #0f172a;
+    }
+
+    .pricing-inputs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .pricing-inputs label {
+      display: grid;
+      gap: 6px;
+      font-weight: 600;
+      color: #1e293b;
+      font-size: 0.95rem;
+    }
+
+    .pricing-inputs input {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      color: #0f172a;
+      background: #ffffff;
+    }
+
+    .quantity-slider {
+      margin-bottom: 24px;
+    }
+
+    .quantity-slider label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .slider-container {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background: #cbd5e1;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #2563eb;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #2563eb;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+    }
+
+    .quantity-display {
+      min-width: 80px;
+      padding: 8px 12px;
+      background: #f1f5f9;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .comparison-table thead {
+      background: #f0f4f8;
+    }
+
+    .comparison-table th {
+      padding: 14px;
+      text-align: left;
+      font-weight: 700;
+      color: #1e293b;
+      font-size: 0.95rem;
+    }
+
+    .comparison-table td {
+      padding: 14px;
+      border-top: 1px solid #e2e8f0;
+      color: #334155;
+      font-size: 0.95rem;
+    }
+
+    .comparison-table tr:hover {
+      background: #f8fafc;
+    }
+
+    .metric-label {
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .metric-value {
+      font-weight: 700;
+      color: #2563eb;
+    }
+
+    .savings {
+      color: #16a34a;
+      font-weight: 700;
+    }
+
+    .expensive {
+      color: #b91c1c;
+      font-weight: 700;
+    }
+
+    .chart-container {
+      margin-top: 24px;
+      padding: 20px;
+      background: #f8fafc;
+      border-radius: 16px;
+    }
+
+    .chart-title {
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 16px;
+      font-size: 1rem;
+    }
+
+    .chart-bars {
+      display: grid;
+      gap: 16px;
+    }
+
+    .chart-row {
+      display: grid;
+      grid-template-columns: 120px 1fr 100px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .chart-label {
+      font-weight: 600;
+      color: #334155;
+      font-size: 0.95rem;
+    }
+
+    .chart-bar {
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #2563eb, #4f46e5);
+      position: relative;
+      min-width: 20px;
+    }
+
+    .chart-bar.mai {
+      background: linear-gradient(90deg, #10b981, #059669);
+    }
+
+    .chart-value {
+      font-weight: 700;
+      color: #0f172a;
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 860px) {
+      body {
+        padding: 20px;
+      }
+
+      .inline-grid,
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      form,
+      .results,
+      .debug {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Azure OpenAI Image Compare</h1>
+    <p class="note">MAI-Image-2e와 gpt-image-2에 동일한 프롬프트를 보내고 결과를 나란히 표시합니다.</p>
+  </header>
+
+  <form id="compareForm">
+    <label>
+      Azure OpenAI Endpoint (또는 Foundry Base URL)
+      <input id="endpoint" type="text" placeholder="https://nrtest.openai.azure.com 또는 https://nrtest.services.ai.azure.com/api/projects/nr-default" required />
+      <small>Azure OpenAI: https://resource.openai.azure.com | Foundry: https://resource.services.ai.azure.com/api/projects/project-name</small>
+    </label>
+
+    <div class="inline-grid">
+      <label>
+        API Key
+        <input id="apiKey" type="text" placeholder="Azure OpenAI key" required />
+      </label>
+      <label>
+        API Version
+        <input id="apiVersion" type="text" value="2024-12-01" required />
+      </label>
+    </div>
+
+    <div class="inline-grid">
+      <label>
+        MAI-Image-2e Deployment Name
+        <input id="modelA" type="text" placeholder="배포 이름 입력" value="MAI-Image-2e" required />
+        <small>Azure 포털에서 생성한 MAI-Image-2e 배포 이름을 정확히 입력하세요.</small>
+      </label>
+      <label>
+        GPT-Image-2 Deployment Name
+        <input id="modelB" type="text" placeholder="배포 이름 입력" value="gpt-image-2" required />
+        <small>Azure 포털에서 생성한 gpt-image-2 배포 이름을 정확히 입력하세요.</small>
+      </label>
+    </div>
+
+    <label>
+      Prompt
+      <textarea id="prompt" placeholder="예: A colorful illustration of a futuristic Seoul skyline at sunset" required></textarea>
+    </label>
+
+    <button type="submit">이미지 생성 비교</button>
+  </form>
+
+  <div id="debug" class="debug">요청 URL, 상태, 오류가 여기에 표시됩니다.</div>
+
+  <section class="results">
+    <div class="grid-2">
+      <article class="card">
+        <div id="statusA" class="status">준비됨</div>
+        <img id="imageA" alt="result image A" />
+        <a id="downloadA" class="download-button" href="#" download="imageA.png" hidden>다운로드</a>
+      </article>
+      <article class="card">
+        <div id="statusB" class="status">준비됨</div>
+        <img id="imageB" alt="result image B" />
+        <a id="downloadB" class="download-button" href="#" download="imageB.png" hidden>다운로드</a>
+      </article>
+    </div>
+  </section>
+
+  <div class="analysis-toggle">
+    <button class="toggle-switch" id="analysisToggle" type="button"></button>
+    <label for="analysisToggle" style="margin: 0; cursor: pointer; font-weight: 600; color: #1e293b;">비용 & 성능 분석</label>
+  </div>
+
+  <section id="analysisPanel" class="analysis-section">
+    <h3>비용 & 성능 분석</h3>
+    
+    <div class="pricing-inputs">
+      <label>
+        MAI-Image-2e 단가 ($/1M 토큰 출력)
+        <input type="number" id="maiPrice" value="19.50" step="0.01" />
+      </label>
+      <label>
+        GPT-Image-2 단가 ($/1M 토큰 출력)
+        <input type="number" id="gptPrice" value="30" step="0.01" />
+      </label>
+      <label>
+        프롬프트 토큰 (입력)
+        <input type="number" id="promptTokens" value="15" step="1" />
+      </label>
+      <label>
+        이미지 토큰 (출력)
+        <input type="number" id="outputTokens" value="1000" step="100" />
+      </label>
+    </div>
+
+    <div class="quantity-slider">
+      <label>생성 횟수 비교</label>
+      <div class="slider-container">
+        <input type="range" id="quantitySlider" min="1" max="1000" value="1" />
+        <div class="quantity-display" id="quantityDisplay">1회</div>
+      </div>
+    </div>
+
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>지표</th>
+          <th>MAI-Image-2e</th>
+          <th>GPT-Image-2</th>
+          <th>차이</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="metric-label">1회 비용 ($)</td>
+          <td class="metric-value" id="maiSingleCost">-</td>
+          <td class="metric-value" id="gptSingleCost">-</td>
+          <td id="costDiff">-</td>
+        </tr>
+        <tr>
+          <td class="metric-label">누적 비용 ($)</td>
+          <td class="metric-value" id="maiTotalCost">-</td>
+          <td class="metric-value" id="gptTotalCost">-</td>
+          <td id="totalCostDiff">-</td>
+        </tr>
+        <tr>
+          <td class="metric-label">생성 시간 (초)</td>
+          <td id="maiTime">-</td>
+          <td id="gptTime">-</td>
+          <td id="timeDiff">-</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="chart-container">
+      <div class="chart-title">누적 비용 비교</div>
+      <div class="chart-bars">
+        <div class="chart-row">
+          <div class="chart-label">MAI</div>
+          <div class="chart-bar mai" id="maiBar" style="width: 0%"></div>
+          <div class="chart-value" id="maiBarValue">$0</div>
+        </div>
+        <div class="chart-row">
+          <div class="chart-label">GPT</div>
+          <div class="chart-bar" id="gptBar" style="width: 0%"></div>
+          <div class="chart-value" id="gptBarValue">$0</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const form = document.getElementById('compareForm');
+    const statusA = document.getElementById('statusA');
+    const statusB = document.getElementById('statusB');
+    const imageA = document.getElementById('imageA');
+    const imageB = document.getElementById('imageB');
+    const downloadA = document.getElementById('downloadA');
+    const downloadB = document.getElementById('downloadB');
+    const debug = document.getElementById('debug');
+    let timerA = null;
+    let timerB = null;
+    let timeA = 0;
+    let timeB = 0;
+
+    // 분석 패널 관련
+    const analysisToggle = document.getElementById('analysisToggle');
+    const analysisPanel = document.getElementById('analysisPanel');
+    const quantitySlider = document.getElementById('quantitySlider');
+    const quantityDisplay = document.getElementById('quantityDisplay');
+    const maiPrice = document.getElementById('maiPrice');
+    const gptPrice = document.getElementById('gptPrice');
+    const promptTokens = document.getElementById('promptTokens');
+    const outputTokens = document.getElementById('outputTokens');
+
+    // 토글 이벤트
+    analysisToggle.addEventListener('click', () => {
+      analysisToggle.classList.toggle('active');
+      analysisPanel.classList.toggle('active');
+    });
+
+    // 슬라이더 업데이트
+    quantitySlider.addEventListener('input', () => {
+      const qty = quantitySlider.value;
+      quantityDisplay.textContent = `${qty}회`;
+      updateAnalysis();
+    });
+
+    // 입력값 변경 시 분석 업데이트
+    [maiPrice, gptPrice, promptTokens, outputTokens].forEach(input => {
+      input.addEventListener('change', updateAnalysis);
+    });
+
+    function updateAnalysis() {
+      const mai = parseFloat(maiPrice.value) || 19.50;
+      const gpt = parseFloat(gptPrice.value) || 30;
+      const outTokens = parseFloat(outputTokens.value) || 1000;
+      const qty = parseInt(quantitySlider.value) || 1;
+
+      // 1회 비용 계산
+      const maiSingle = (outTokens / 1000000) * mai;
+      const gptSingle = (outTokens / 1000000) * gpt;
+      const maiTotal = maiSingle * qty;
+      const gptTotal = gptSingle * qty;
+
+      // UI 업데이트
+      document.getElementById('maiSingleCost').textContent = `$${maiSingle.toFixed(6)}`;
+      document.getElementById('gptSingleCost').textContent = `$${gptSingle.toFixed(6)}`;
+      document.getElementById('maiTotalCost').textContent = `$${maiTotal.toFixed(2)}`;
+      document.getElementById('gptTotalCost').textContent = `$${gptTotal.toFixed(2)}`;
+
+      // 비용 차이
+      const diff = gptSingle - maiSingle;
+      const totalDiff = gptTotal - maiTotal;
+      const costDiffElement = document.getElementById('costDiff');
+      const totalCostDiffElement = document.getElementById('totalCostDiff');
+      
+      if (diff > 0) {
+        costDiffElement.className = 'savings';
+        costDiffElement.textContent = `MAI ${(diff * 1000000 / outTokens * 100).toFixed(1)}% 저렴`;
+        totalCostDiffElement.className = 'savings';
+        totalCostDiffElement.textContent = `절감 $${totalDiff.toFixed(2)}`;
+      } else {
+        costDiffElement.className = 'expensive';
+        costDiffElement.textContent = `GPT ${(Math.abs(diff) * 1000000 / outTokens * 100).toFixed(1)}% 저렴`;
+        totalCostDiffElement.className = 'expensive';
+        totalCostDiffElement.textContent = `추가 $${Math.abs(totalDiff).toFixed(2)}`;
+      }
+
+      // 시간 정보
+      document.getElementById('maiTime').textContent = timeA > 0 ? `${timeA}초` : '-';
+      document.getElementById('gptTime').textContent = timeB > 0 ? `${timeB}초` : '-';
+      if (timeA > 0 && timeB > 0) {
+        const timeDiff = timeB - timeA;
+        const timeDiffElement = document.getElementById('timeDiff');
+        timeDiffElement.className = timeDiff < 0 ? 'savings' : 'expensive';
+        timeDiffElement.textContent = `${Math.abs(timeDiff)}초 ${timeDiff < 0 ? '빠름' : '느림'}`;
+      }
+
+      // 차트 업데이트
+      const maxCost = Math.max(maiTotal, gptTotal);
+      const maiPercentage = (maiTotal / maxCost) * 100;
+      const gptPercentage = (gptTotal / maxCost) * 100;
+      document.getElementById('maiBar').style.width = maiPercentage + '%';
+      document.getElementById('gptBar').style.width = gptPercentage + '%';
+      document.getElementById('maiBarValue').textContent = `$${maiTotal.toFixed(2)}`;
+      document.getElementById('gptBarValue').textContent = `$${gptTotal.toFixed(2)}`;
+    }
+
+function startTimer(statusElement, label, model) {
+      let seconds = 0;
+      statusElement.innerHTML = `<span class="spinner"></span>${label} 0초`;
+      return setInterval(() => {
+        seconds += 1;
+        statusElement.textContent = `${label} ${seconds}초`;
+        if (model === 'A') timerCountA = seconds;
+        if (model === 'B') timerCountB = seconds;
+      }, 1000);
+    }
+
+    function recordTime(model) {
+      if (model === 'A') {
+        timeA = timerCountA || 0;
+      } else {
+        timeB = timerCountB || 0;
+      }
+      updateAnalysis();
+    }
+
+    function stopTimer(timerRef) {
+      if (timerRef) {
+        clearInterval(timerRef);
+      }
+    }
+
+    function setDebug(text) {
+      debug.textContent = text;
+    }
+
+    async function fetchImage(endpoint, apiKey, apiVersion, model, prompt) {
+      const proxyUrl = 'http://localhost:3000/api/generate-image';
+      
+      setDebug(`요청 URL: ${proxyUrl}\n모델: ${model}\n프롬프트: ${prompt}`);
+      
+      try {
+        const response = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            endpoint,
+            apiKey,
+            model,
+            prompt
+          })
+        });
+
+        const result = await response.json();
+        
+        if (!response.ok) {
+          const detail = result.error || JSON.stringify(result);
+          setDebug(`프록시 응답 상태: ${response.status}\n오류: ${detail}`);
+          throw new Error(`${response.status}: ${detail}`);
+        }
+
+        const imageData = result.data?.[0];
+        if (!imageData) {
+          throw new Error('이미지 응답이 없습니다.');
+        }
+
+        if (imageData.url) {
+          return imageData.url;
+        }
+        if (imageData.b64_json) {
+          return `data:image/png;base64,${imageData.b64_json}`;
+        }
+        if (imageData.b64) {
+          return `data:image/png;base64,${imageData.b64}`;
+        }
+
+        throw new Error('알 수 없는 이미지 응답 형식입니다.');
+      } catch (error) {
+        setDebug(`프록시 요청 실패: ${error.message}`);
+        throw error;
+      }
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const endpoint = document.getElementById('endpoint').value.trim();
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const apiVersion = document.getElementById('apiVersion').value.trim();
+      const modelA = document.getElementById('modelA').value.trim();
+      const modelB = document.getElementById('modelB').value.trim();
+      const prompt = document.getElementById('prompt').value.trim();
+
+      timerCountA = 0;
+      timerCountB = 0;
+      timerA = startTimer(statusA, '생성 중...', 'A');
+      timerB = startTimer(statusB, '생성 중...', 'B');
+      imageA.src = '';
+      imageB.src = '';
+      imageA.alt = '로딩 중...';
+      imageB.alt = '로딩 중...';
+      downloadA.hidden = true;
+      downloadB.hidden = true;
+
+      const updateStatus = (element, message, isError = false) => {
+        element.textContent = message;
+        element.classList.toggle('error', isError);
+      };
+
+      const promises = [
+        fetchImage(endpoint, apiKey, apiVersion, modelA, prompt)
+          .then((src) => {
+            imageA.src = src;
+            imageA.alt = `${modelA} generated image`;
+            downloadA.href = src;
+            downloadA.download = `${modelA}.png`;
+            downloadA.hidden = false;
+            stopTimer(timerA);
+            recordTime('A');
+            updateStatus(statusA, `성공 (${timerCountA}초)`);
+          })
+          .catch((error) => {
+            downloadA.hidden = true;
+            stopTimer(timerA);
+            updateStatus(statusA, `실패: ${error.message}`, true);
+          }),
+        fetchImage(endpoint, apiKey, apiVersion, modelB, prompt)
+          .then((src) => {
+            imageB.src = src;
+            imageB.alt = `${modelB} generated image`;
+            downloadB.href = src;
+            downloadB.download = `${modelB}.png`;
+            downloadB.hidden = false;
+            stopTimer(timerB);
+            recordTime('B');
+            updateStatus(statusB, `성공 (${timerCountB}초)`);
+          })
+          .catch((error) => {
+            downloadB.hidden = true;
+            stopTimer(timerB);
+            updateStatus(statusB, `실패: ${error.message}`, true);
+          })
+      ];
+
+      await Promise.all(promises);
+    });
+  </script>
+</body>
+</html>
